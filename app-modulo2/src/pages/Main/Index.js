@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import logo from "../../assests/logo.png";
-
+import moment from "moment";
 import { Container, Form } from "./style";
 
 import CompareList from "../../components/compareList/Index";
@@ -11,7 +11,20 @@ export default class Main extends Component {
   state = {
     repositoryInput: "",
     repositories: [],
-    loading: false
+    loading: false,
+    repositoryError: false
+  };
+
+  componentDidMount = () => {
+    console.log("tamanho", localStorage.length);
+    for (let n = 0; n < localStorage.length; n++) {
+      let nameRepo = localStorage.key(n);
+      let parseJson = JSON.parse(localStorage.getItem(nameRepo));
+      console.log(parseJson);
+      this.setState({
+        repositories: [parseJson, ...this.state.repositories]
+      });
+    }
   };
 
   handleAddrepository = async event => {
@@ -20,16 +33,21 @@ export default class Main extends Component {
       loading: true
     });
     try {
-      const response = await api.get(
+      const { data: respository } = await api.get(
         `https://api.github.com/repos/${this.state.repositoryInput}`
       );
+
+      respository.lastCommit = moment(respository.pushed_at).fromNow();
+
+      localStorage.setItem(respository.name, JSON.stringify({ respository }));
+      console.log(respository);
       this.setState({
         repositoryInput: "",
-        repositories: [...this.state.repositories, response.data]
+        repositories: [...this.state.repositories, respository],
+        repositoryError: false
       });
-      console.log(response);
     } catch (err) {
-      console.log(err);
+      this.setState({ repositoryError: true });
     } finally {
       this.setState({
         loading: false
@@ -41,7 +59,10 @@ export default class Main extends Component {
     return (
       <Container>
         <img src={logo} alt="Git compare" />
-        <Form onSubmit={this.handleAddrepository}>
+        <Form
+          withError={this.state.repositoryError}
+          onSubmit={this.handleAddrepository}
+        >
           <input
             type="text"
             placeholder="usuário/repositório"
